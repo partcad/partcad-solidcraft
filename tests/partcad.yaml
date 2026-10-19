@@ -1,0 +1,34 @@
+# The package these tests build parts from: what a workspace using this plugin
+# looks like, with the plugin imported through a `local` dependency rather than
+# from the public index.
+#
+# The `.pcignore` beside this file is what keeps it out of the plugin's own
+# package tree. Without it this folder would be a subpackage of the plugin --
+# listed wherever the plugin is used -- and a workspace opened in here would
+# climb to the plugin as its root.
+
+desc: |
+  Parts read with the SolidCraft plugin, from the files beside this one:
+
+  - 'plate.solidcraft', a 40 x 30 mm plate whose thickness is the design's
+    'height' parameter (built from 'plate.json' with
+    'solidcraft-cli run plate.json --save plate.solidcraft');
+  - 'slab.3dm', a 25 x 15 x 5 mm box saved as a Rhino 7 file;
+  - 'cylinder.igs', a 5 mm radius, 12 mm tall cylinder as an IGES B-rep.
+
+dependencies:
+  solidcraft:
+    type: local
+    path: ..
+
+parts:
+  plate:
+    type: solidcraft:solidcraft
+    parameters:
+      height:
+        type: float
+        default: 20
+  slab:
+    type: solidcraft:rhino
+  cylinder:
+    type: solidcraft:iges

@@ -1,0 +1,71 @@
+# SolidCraft for PartCAD: the formats SolidCraft reads and PartCAD does not,
+# the format it writes, and the application itself for `pc ide open`.
+#
+# Everything here runs SolidCraft's command line tool, `solidcraft-cli`. It is
+# found on the PATH, in this package's image where PartCAD's `docker` sandbox is
+# in use and the image can be pulled, or downloaded on first use -- the release
+# pinned in `solidcraft_tool.py`, checked against its published SHA-256 -- into
+# this package's cache directory, and kept there.
+#
+# Needs a PartCAD whose partTypes can read a file (`extension:`), which is what
+# hands a script the part's file as `request["path"]` and this package's cache
+# directory as `request["cache_dir"]`.
+
+name: //pub/feature/cad/solidcraft
+desc: |
+  [SolidCraft](https://github.com/bherbruck/solidcraft) for PartCAD: parts read
+  from SolidCraft designs, Rhino `.3dm` files and IGES files, the
+  `.solidcraft` export, and SolidCraft as an application `pc ide open` opens
+  objects in.
+
+# Where these scripts run best: PartCAD's Python sandbox image with SolidCraft
+# on the PATH (see `Dockerfile`). A preference, not a requirement -- a machine
+# that cannot pull it runs them in PartCAD's own sandbox, and the scripts fetch
+# `solidcraft-cli` themselves.
+#
+# The tag is a hash of what the image is built from rather than a version. It
+# is immutable, so this pin keeps working when the image is next edited, and an
+# image and the code expecting it cannot drift apart silently. PartCAD appends
+# the machine's architecture before pulling, so one line here covers both. See
+# `.github/workflows/image.yml` and `image-tag.sh`.
+dockerImage: ghcr.io/partcad/partcad-solidcraft:e0efa5cdaf5a
+
+partTypes:
+  solidcraft:
+    desc: |
+      A SolidCraft design (`.solidcraft`, or its plain JSON form). Every
+      parameter the part declares is set on the design's user parameter of the
+      same name before it is rebuilt.
+    path: read_part.py
+    extension: solidcraft
+  rhino:
+    desc: A Rhino `.3dm` file's solids (Rhino itself is not needed).
+    path: read_part.py
+    extension: 3dm
+  iges:
+    desc: An IGES file's solids and sewn surfaces.
+    path: read_part.py
+    extension: igs
+
+export:
+  solidcraft:
+    desc: A SolidCraft design holding the object, ready to be modelled on in SolidCraft.
+    path: export_solidcraft.py
+    extension: solidcraft
+
+open:
+  solidcraft:
+    displayName: SolidCraft
+    # Best first. A SolidCraft design is the one format edited with its history
+    # intact; STEP and IGES are exact solids; meshes come last. Anything else --
+    # a script, a BREP, an extrusion -- is converted to STEP on the way. glTF
+    # is left out on purpose: SolidCraft cannot write it back.
+    formats: [solidcraft, step, iges, 3mf, stl, obj]
+    binaries: [solidcraft]
+    macosApps: [SolidCraft.app]
+    windowsGlobs: ["SolidCraft*/solidcraft.exe", "SolidCraft*/bin/solidcraft.exe"]
+    flatpakId: ai.storyteller.solidcraft
+    # Where SolidCraft is not installed: the same image as above, pulled on
+    # demand, with the display forwarded into it.
+    container:
+      image: ghcr.io/partcad/partcad-solidcraft:e0efa5cdaf5a
