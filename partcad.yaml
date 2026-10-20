@@ -9,7 +9,10 @@
 #
 # Needs a PartCAD whose partTypes can read a file (`extension:`), which is what
 # hands a script the part's file as `request["path"]` and this package's cache
-# directory as `request["cache_dir"]`.
+# directory as `request["cache_dir"]`: 0.8.228, the first release with them. An
+# older PartCAD refuses the package with "Incompatible PartCAD version!" rather
+# than reading every part as a failure.
+partcad: ">=0.8.228"
 
 name: //pub/feature/cad/solidcraft
 desc: |

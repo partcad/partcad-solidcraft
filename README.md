@@ -14,8 +14,9 @@ It adds what SolidCraft reads and PartCAD does not:
 
 `solidcraft:` is the name the workspace imports this package under; use whatever name the dependency is given.
 
-It needs a PartCAD whose partTypes can read a file -- the `extension:` of a `partType` -- which is what hands a
-script the part's file and this package's cache directory.
+It needs PartCAD 0.8.228 or newer, the first whose partTypes can read a file -- the `extension:` of a
+`partType` -- which is what hands a script the part's file and this package's cache directory. `partcad.yaml` says
+so, and an older PartCAD refuses the package rather than failing every part.
 
 ## Using it
 
@@ -38,6 +39,14 @@ parts:
   bracket:
     type: solidcraft:iges
     path: vendor/bracket.iges     # relative to this package, as for any file-backed part
+```
+
+It is also in PartCAD's public index, as `//pub/feature/cad/solidcraft`, which needs no dependency of its own:
+
+```yaml
+parts:
+  plate:
+    type: //pub/feature/cad/solidcraft:solidcraft
 ```
 
 Each part is one file, declared exactly like a STEP or an STL part: `path` relative to the package declaring the
@@ -89,7 +98,7 @@ dependency and declares one part per partType. The empty `.pcignore` in it keeps
 it is never listed as the plugin's subpackage wherever the plugin is used.
 
 ```shell
-pip install pytest partcad
+pip install pytest "partcad>=0.8.228"
 pytest                 # everything; the first part built downloads SolidCraft
 pytest -m "not slow"   # the scripts' own logic, and the configuration as PartCAD reads it
 ```

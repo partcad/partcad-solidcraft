@@ -34,8 +34,9 @@ concurrency:
 env:
   # The interpreter PartCAD runs a package's scripts on by default.
   PYTHON_VERSION: "3.11"
-  # This package needs partTypes that read a file, which PartCAD's development
-  # branch has ahead of a release that does.
+  # PartCAD's development branch by default: this package needs 0.8.228 or
+  # newer (its `partcad:`), and a change there that breaks it shows up here
+  # before a release ships it.
   PARTCAD: ${{ inputs.partcad || 'partcad @ git+https://github.com/partcad/partcad.git@devel' }}
 
 jobs:
