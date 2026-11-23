@@ -22,6 +22,7 @@ Run them with `pytest`; `pytest -m "not slow"` for the quick ones only.
 """
 
 import asyncio
+import datetime
 import hashlib
 import importlib.util
 import io
@@ -78,10 +79,12 @@ def _commands(drawing, request, file_format="svg", target="/out/bracket.svg"):
 
 def test_a_drawing_is_the_standard_views_on_one_named_sheet(drawing):
     params, order = _commands(drawing, {})
-    assert order == ["drawing.create", "drawing.view.standard", "drawing.export"]
+    assert order == ["drawing.create", "drawing.view.standard", "drawing.sheet.set", "drawing.export"]
     # The sheet is named, because a script cannot read an id out of an earlier step's reply.
     assert params["drawing.create"] == {"name": "bracket", "template": "iso-a3-part", "first_sheet_name": "Sheet 1"}
     assert params["drawing.view.standard"] == {"sheet": "Sheet 1", "iso": True}
+    # The title cell reads the documented component's name, which a script cannot point at: written over.
+    assert params["drawing.sheet.set"] == {"sheet": "Sheet 1", "title_block_overrides": {"title": "bracket"}}
     assert params["drawing.export"] == {"sheet": "Sheet 1", "format": "svg", "path": "/out/bracket.svg"}
 
 
@@ -114,16 +117,27 @@ def test_draftwright_s_parameters_mean_the_same_here(drawing):
             "company": "PartCAD",
             "scale": 2,
             "projection": "First",
-            "material": "AL 6061-T6",  # draftwright's, and not a drawing property of SolidCraft's
+            "material": "AL 6061-T6",
+            "date": datetime.date(2026, 8, 9),  # what an unquoted YAML date arrives as
         },
     )
     assert params["drawing.create"]["name"] == "Mounting Plate"
     assert params["drawing.create"]["projection"] == "first"
     assert params["drawing.view.standard"]["scale"] == "2:1"
+    assert params["drawing.sheet.set"]["title_block_overrides"] == {
+        "title": "Mounting Plate",
+        "identification_number": "PC-EX-0001",
+        "material": "AL 6061-T6",
+    }
+    # The legal owner is the drawing's organization.
     assert params["drawing.properties.set"] == {
         "values": {"part_number": "PC-EX-0001", "revision": "B", "author": "PartCAD example", "organization": "PartCAD"}
     }
-    assert order.index("drawing.properties.set") < order.index("drawing.export")
+    # Created by and Date of issue are the latest revision row's.
+    assert params["drawing.revision.add"] == {
+        "set": {"revision": "B", "designer": "PartCAD example", "date": "2026-08-09"}
+    }
+    assert order[-1] == "drawing.export"
 
 
 @pytest.mark.parametrize("value, text", [(1, "1:1"), (2, "2:1"), (0.5, "1:2"), (0.2, "1:5"), ("1:20", "1:20")])
@@ -134,12 +148,23 @@ def test_a_scale_is_written_paper_to_model(drawing, value, text):
 def test_solidcraft_s_own_parameters_reach_it(drawing):
     params, _ = _commands(
         drawing,
-        {"view": "Top", "iso": "false", "gap_mm": "12", "line_group": 0.35, "font": "DejaVu Sans", "license": "MIT"},
+        {
+            "view": "Top",
+            "iso": "false",
+            "gap_mm": "12",
+            "line_group": 0.35,
+            "font": "DejaVu Sans",
+            "license": "MIT",
+            "finish": "Anodised",
+            "approved_by": "B. Checker",
+        },
     )
     assert params["drawing.view.standard"] == {"sheet": "Sheet 1", "iso": False, "view": "top", "gap_mm": 12.0}
     assert params["drawing.create"]["line_group"] == 0.35
     assert params["drawing.create"]["font"] == "DejaVu Sans"
     assert params["drawing.properties.set"] == {"values": {"license": "MIT"}}
+    assert params["drawing.sheet.set"]["title_block_overrides"] == {"title": "bracket", "finish": "Anodised"}
+    assert params["drawing.revision.add"] == {"set": {"checker": "B. Checker"}}
 
 
 def test_a_png_s_options_go_to_a_png_only(drawing):
@@ -208,10 +233,11 @@ def test_the_reply_of_a_run_is_read_in_both_its_shapes(drawing, tmp_path):
 # A stand-in for 'solidcraft-cli': records how it was run, writes the file the
 # export step names and the reply '--json-out' asks for, as SolidCraft does.
 FAKE_CLI = """#!%(python)s
-import json, sys
+import json, os, sys
 args = sys.argv[1:]
 with open(%(log)r, "w") as f:
-    json.dump(args, f)
+    json.dump({"args": args, "telemetry": os.environ.get("SOLIDCRAFT_NO_TELEMETRY"),
+               "update_check": os.environ.get("SOLIDCRAFT_UPDATE_CHECK")}, f)
 with open(args[1]) as f:
     commands = json.load(f)["commands"]
 results = []
@@ -243,7 +269,11 @@ def fake_cli(monkeypatch, tmp_path):
         cli.write_text(FAKE_CLI % {"python": sys.executable, "log": str(log), "fail": fail})
         cli.chmod(0o755)
 
+        real = _module("solidcraft_tool")
+
         class Tool:
+            environment = staticmethod(real.environment)
+
             @staticmethod
             def executable(cache_dir=None):
                 return str(cli)
@@ -270,8 +300,11 @@ def test_a_drawing_is_rendered_by_solidcraft_s_command_line(drawing, fake_cli, t
     )
     assert result["success"], result
     assert target.read_text() == "<svg/>"
-    args = json.loads(log.read_text())
+    ran = json.loads(log.read_text())
+    args = ran["args"]
     assert args[0] == "run"
+    # Run on somebody's behalf, it sends nothing anywhere.
+    assert (ran["telemetry"], ran["update_check"]) == ("1", "0")
     # The object is the design the commands run on, as a STEP file named after it.
     assert os.path.basename(args[args.index("--in") + 1]) == "my_bracket.step"
     # A parameter spelt wrongly here stops the run rather than being dropped.

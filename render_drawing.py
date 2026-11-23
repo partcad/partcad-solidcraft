@@ -19,16 +19,22 @@ own drawing commands is run on it by 'solidcraft-cli run':
     drawing.view.standard   front, top and right views lined up in the
                             drawing's projection, and an isometric one, at the
                             largest ISO 5455 scale that fits (or 'scale')
-    drawing.properties.set  what the title block says
+    drawing.sheet.set       what the title block says where the template reads
+    drawing.properties.set  it from somewhere a script cannot point at: the
+    drawing.revision.add    title and the identification number are typed
+                            over their cells, the legal owner is the drawing's
+                            'organization', and who drew it, who approved it
+                            and when are a revision row
     drawing.export          the sheet as SVG, PDF, DXF or PNG
 
 Only the template and the views are SolidCraft's choice. What a drawing package
 is asked for is the same whoever draws it, so the parameters PartCAD's Draft
 tab and a package's 'render:' section set mean here what they mean to
 '//pub/feature/render/draftwright' wherever SolidCraft has the same notion:
-'title', 'number', 'revision', 'drawn_by', 'company', 'page', 'scale' and
-'projection'. A package that configures its drawings once gets the same title
-block from either. The rest are SolidCraft's own: see 'partcad.yaml'.
+'title', 'number', 'revision', 'drawn_by', 'company', 'material', 'date',
+'page', 'scale' and 'projection'. A package that configures its drawings once
+gets the same title block from either. The rest are SolidCraft's own: see
+'partcad.yaml'.
 
 No dimensions are placed. SolidCraft brings a design's own dimensions into a
 drawing ('drawing.dimension.from_model'), but what PartCAD hands over is a
@@ -76,7 +82,7 @@ PAGES = ("a0", "a1", "a2", "a3", "a4")
 # defaults (A3 for a part, A2 for an assembly). Named here rather than left to
 # SolidCraft because SolidCraft picks by whether the design places components,
 # and every STEP file it opens is placed as one -- so it would draw every part on
-# an assembly's sheet, parts list and all.
+# an assembly's sheet, with an assembly's general tolerances.
 DEFAULT_PAGES = {"part": "a3", "assembly": "a2"}
 
 # What the main view may look from (the front by default).
@@ -84,10 +90,10 @@ MAIN_VIEWS = ("front", "back", "top", "bottom", "left", "right")
 
 PROJECTIONS = ("first", "third")
 
-# What the title block says, as '<parameter>: <drawing property>'. The first
-# three are draftwright's names for the same fields; the rest are SolidCraft's.
-# The title is not among them: it is the drawing's name, which 'drawing.create'
-# takes.
+# The drawing's properties, as '<parameter>: <property>'. The first four are
+# draftwright's names; the rest are SolidCraft's. Of these the built-in title
+# blocks show one, 'organization', as the legal owner; the rest are kept with
+# the drawing, where a template of the user's own may show them.
 PROPERTIES = {
     "number": "part_number",
     "revision": "revision",
@@ -96,6 +102,29 @@ PROPERTIES = {
     "description": "description",
     "project": "project",
     "license": "license",
+}
+
+# The cells typed over, as '<parameter>: <cell>'. The built-in title blocks read
+# these from what a script cannot name -- the title and the material from the
+# component a sheet documents, which is named by an id the script never sees,
+# and the identification number from a drawing number no command sets -- so the
+# text is written over the cell instead. The title is always written: it is the
+# object's name unless 'title' says otherwise.
+CELLS = {
+    "title": "title",
+    "number": "identification_number",
+    "material": "material",
+    "finish": "finish",
+}
+
+# The revision row, as '<parameter>: <field>': who drew it, who approved it,
+# and when, which the built-in title blocks read from the drawing's latest row.
+# A row is added only when one of these is set.
+REVISION = {
+    "revision": "revision",
+    "drawn_by": "designer",
+    "approved_by": "checker",
+    "date": "date",
 }
 
 # How long SolidCraft may take, in seconds, unless 'solidcraftTimeout' says.
@@ -187,14 +216,33 @@ def title_of(request):
     return str(request.get("title") or request.get("shape_name") or "Drawing")
 
 
-def properties_of(request):
-    """The title block's fields this request sets, as SolidCraft's drawing properties."""
+def fields(request, names):
+    """The parameters of 'names' this request sets, under the names SolidCraft gives them, as text.
+
+    As text because that is what each of them is on the sheet: a 'date' written
+    unquoted in YAML arrives as a date, and a 'number' as a number.
+    """
     values = {}
-    for parameter, prop in PROPERTIES.items():
+    for parameter, name in names.items():
         value = request.get(parameter)
         if value not in (None, ""):
-            values[prop] = str(value)
+            values[name] = str(value)
     return values
+
+
+def properties_of(request):
+    """The drawing properties this request sets."""
+    return fields(request, PROPERTIES)
+
+
+def cells_of(request):
+    """The title block cells this request writes over: always the title."""
+    return fields({**request, "title": title_of(request)}, CELLS)
+
+
+def revision_of(request):
+    """The revision row this request adds, or None when it sets none of its fields."""
+    return fields(request, REVISION) or None
 
 
 def script(request, file_format, target):
@@ -223,9 +271,15 @@ def script(request, file_format, target):
         {"command": "drawing.create", "params": create},
         {"command": "drawing.view.standard", "params": views},
     ]
+    commands.append(
+        {"command": "drawing.sheet.set", "params": {"sheet": SHEET, "title_block_overrides": cells_of(request)}}
+    )
     properties = properties_of(request)
     if properties:
         commands.append({"command": "drawing.properties.set", "params": {"values": properties}})
+    revision = revision_of(request)
+    if revision is not None:
+        commands.append({"command": "drawing.revision.add", "params": {"set": revision}})
 
     export = {"sheet": SHEET, "format": file_format, "path": target}
     if file_format == "png":
@@ -334,6 +388,7 @@ def process(path, request):
                 capture_output=True,
                 text=True,
                 check=False,
+                env=solidcraft_tool.environment(),
                 timeout=float(request.get("solidcraftTimeout") or DEFAULT_TIMEOUT),
             )
             results, error = results_of(results_file)

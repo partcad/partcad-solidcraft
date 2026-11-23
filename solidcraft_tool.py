@@ -67,6 +67,18 @@ ASSETS = {
 MACHINES = {"amd64": "x86_64", "x86_64": "x86_64", "arm64": "aarch64", "aarch64": "aarch64"}
 
 
+# What 'solidcraft-cli' is run with, on top of the caller's environment. SolidCraft
+# asks GitHub for a newer release and sends anonymous usage statistics unless
+# told not to; run headless by PartCAD on somebody's behalf, it is told not to
+# (see "Privacy" in SolidCraft's documentation).
+QUIET_ENVIRONMENT = {"SOLIDCRAFT_NO_TELEMETRY": "1", "SOLIDCRAFT_UPDATE_CHECK": "0"}
+
+
+def environment():
+    """The environment to run 'solidcraft-cli' in: this one, with nothing sent anywhere."""
+    return {**os.environ, **QUIET_ENVIRONMENT}
+
+
 def host():
     """This machine as ASSETS spells it: ('linux', 'x86_64') and so on."""
     return platform.system().lower(), MACHINES.get(platform.machine().lower(), platform.machine().lower())

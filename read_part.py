@@ -36,7 +36,9 @@ DESIGN_EXTENSIONS = (".solidcraft", ".json")
 
 def run(command):
     """Run 'solidcraft-cli', raising with what it said when it fails."""
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    import solidcraft_tool
+
+    result = subprocess.run(command, capture_output=True, text=True, check=False, env=solidcraft_tool.environment())
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip().splitlines()
         raise RuntimeError("SolidCraft failed: %s" % (detail[-1] if detail else "exit %d" % result.returncode))
