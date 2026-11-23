@@ -84,17 +84,20 @@ same here -- so a package that configures its drawings once gets the same title 
 ```yaml
 render:
   pdf:
-    title: Mounting Plate   # default: the object's name
-    number: PC-EX-0001
+    title: Mounting Plate   # Title; default: the object's name
+    number: PC-EX-0001      # Identification number
+    material: AL 6061-T6    # Material
+    drawn_by: A. Engineer   # Created by
+    date: "2026-08-09"      # Date of issue
+    company: ACME Corp.     # Legal owner
     revision: B
-    drawn_by: A. Engineer
-    company: ACME Corp.
     page: A3                # ISO A0 to A4; default A3 for a part, A2 for an assembly
     scale: 2                # 2:1, or "paper:model" text; default: fitted to the sheet
     projection: first       # default: third
 ```
 
-`partcad.yaml` lists the rest, which are SolidCraft's own (`template`, `view`, `iso`, `line_group`, `font`, ...).
+`partcad.yaml` lists the rest, which are SolidCraft's own (`approved_by`, `finish`, `template`, `view`, `iso`,
+`line_group`, `font`, ...).
 
 Two things it does not do. It places **no dimensions**: SolidCraft brings a design's own dimensions into its
 drawings, but what PartCAD hands it is a solid, with no sketch or feature behind it to have them -- for dimensions,
