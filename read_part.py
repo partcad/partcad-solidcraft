@@ -28,7 +28,7 @@ import tempfile
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Raise with any change to what this produces (see PartCAD's 'code_version').
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 
 # The extensions SolidCraft opens as one of its own designs.
 DESIGN_EXTENSIONS = (".solidcraft", ".json")

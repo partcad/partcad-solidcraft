@@ -1,5 +1,6 @@
 # SolidCraft for PartCAD: the formats SolidCraft reads and PartCAD does not,
-# the format it writes, and the application itself for `pc ide open`.
+# the format it writes, technical drawings of any part or assembly, and the
+# application itself for `pc ide open`.
 #
 # Everything here runs SolidCraft's command line tool, `solidcraft-cli`. It is
 # found on the PATH, in this package's image where PartCAD's `docker` sandbox is
@@ -16,10 +17,10 @@ partcad: ">=0.8.228"
 
 name: //pub/feature/cad/solidcraft
 desc: |
-  [SolidCraft](https://github.com/bherbruck/solidcraft) for PartCAD: parts read
-  from SolidCraft designs, Rhino `.3dm` files and IGES files, the
-  `.solidcraft` export, and SolidCraft as an application `pc ide open` opens
-  objects in.
+  [SolidCraft](https://github.com/tangency-labs/solidcraft) for PartCAD: parts
+  read from SolidCraft designs, Rhino `.3dm` files and IGES files, the
+  `.solidcraft` export, technical drawings of any part or assembly (SVG, PDF,
+  DXF and PNG), and SolidCraft as an application `pc ide open` opens objects in.
 
 # Where these scripts run best: PartCAD's Python sandbox image with SolidCraft
 # on the PATH (see `Dockerfile`). A preference, not a requirement -- a machine
@@ -31,7 +32,7 @@ desc: |
 # image and the code expecting it cannot drift apart silently. PartCAD appends
 # the machine's architecture before pulling, so one line here covers both. See
 # `.github/workflows/image.yml` and `image-tag.sh`.
-dockerImage: ghcr.io/partcad/partcad-solidcraft:e0efa5cdaf5a
+dockerImage: ghcr.io/partcad/partcad-solidcraft:890ddc902d58
 
 partTypes:
   solidcraft:
@@ -56,6 +57,97 @@ export:
     path: export_solidcraft.py
     extension: solidcraft
 
+# Technical drawings, made by SolidCraft's own drawing workspace: the front,
+# top and right views lined up in the drawing's projection and an isometric one,
+# on an ISO sheet with its border and title block (see `render_drawing.py`).
+#
+# Drawings, so `render:` and not `export:`: a drawing is a document about a part
+# for a person to read, not geometry another CAD tool can go on modelling with.
+# (`pc export -t pdf -e //pub/feature/cad/solidcraft` writes the same file: a
+# section follows the declaration, not the command.)
+#
+# `svg`, `dxf` and `png` are implemented by `//builtin/render` too. Declaring
+# them here replaces those for this package's objects and for a render that
+# names this package (`pc render -e //pub/feature/cad/solidcraft`, which is what
+# the Draft tab of PartCAD's editor extension does), and nowhere else: a
+# workspace importing this package for its partTypes keeps PartCAD's own.
+#
+# Every field of a file type below is a parameter of the drawing, and a package
+# may set any of them, for all its objects or for one. Unset, each keeps
+# SolidCraft's own default. The ones a drawing by
+# `//pub/feature/render/draftwright` also takes mean the same thing here, so a
+# package that configures its drawings once gets the same title block from
+# either:
+#
+#   render:
+#     pdf:
+#       title: Mounting Plate    # the drawing's name; default: the object's
+#       number: DWG-001          # the title block's part number
+#       revision: A
+#       drawn_by: A. Engineer
+#       company: ACME Corp.
+#       page: A3                 # ISO A0 to A4; default A3 for a part, A2 for an assembly
+#       scale: 2                 # 2:1, or "paper:model" text; default: fitted to the sheet
+#       projection: first        # or third; default: the template's, third
+#
+# and SolidCraft's own:
+#
+#       description: Bracket, left-hand
+#       project: Rover
+#       license: CC-BY-4.0
+#       template: iso-a3-part    # a built-in template, instead of `page`
+#       view: front              # the main view: front, back, top, bottom, left or right
+#       iso: true                # an isometric view in the fourth corner
+#       gap_mm: 20               # the paper between neighbouring views
+#       line_group: 0.5          # the ISO 128 line group, by its wide line
+#       font: DejaVu Sans
+#       language: en             # what the template's own text is written in
+#       solidcraftTimeout: 600   # seconds SolidCraft may take
+#
+# `png` also takes `dpi`, `colour` (grey, black_white, rgb or transparent) and
+# `paper` (white, blueprint or prussian_blue).
+#
+# `reproducible` is PartCAD's protocol field, and it is stated `false` below as
+# PartCAD's own file types state it. SolidCraft has no switch that pins what it
+# writes, so a drawing asked for with `reproducible: true` is written all the
+# same, with a warning saying so.
+#
+# `visuals: false` on each: a drawing is of each part as it is, never of the
+# `visual:` it may be shown as. Stated because the built-in `svg` and `png` say
+# `true`, and theirs is the layer this one is laid over.
+#
+# For the same reason `dxf` and `png` say `pythonRequirements: []`: a list
+# replaces the one under it, and the built-ins' would otherwise install
+# PartCAD's own projection and raster libraries into the sandbox SolidCraft is
+# run from, which needs none of them.
+render:
+  svg:
+    desc: A technical drawing of the object by SolidCraft, as SVG.
+    path: render_drawing.py
+    extension: svg
+    reproducible: false
+    visuals: false
+  pdf:
+    desc: A technical drawing of the object by SolidCraft, as PDF.
+    path: render_drawing.py
+    extension: pdf
+    reproducible: false
+    visuals: false
+  dxf:
+    desc: A technical drawing of the object by SolidCraft, as DXF (shaded views left out).
+    path: render_drawing.py
+    extension: dxf
+    reproducible: false
+    visuals: false
+    pythonRequirements: []
+  png:
+    desc: A technical drawing of the object by SolidCraft, as PNG.
+    path: render_drawing.py
+    extension: png
+    reproducible: false
+    visuals: false
+    pythonRequirements: []
+
 open:
   solidcraft:
     displayName: SolidCraft
@@ -67,8 +159,8 @@ open:
     binaries: [solidcraft]
     macosApps: [SolidCraft.app]
     windowsGlobs: ["SolidCraft*/solidcraft.exe", "SolidCraft*/bin/solidcraft.exe"]
-    flatpakId: ai.storyteller.solidcraft
+    flatpakId: io.tangencylabs.solidcraft
     # Where SolidCraft is not installed: the same image as above, pulled on
     # demand, with the display forwarded into it.
     container:
-      image: ghcr.io/partcad/partcad-solidcraft:e0efa5cdaf5a
+      image: ghcr.io/partcad/partcad-solidcraft:890ddc902d58

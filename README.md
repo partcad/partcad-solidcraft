@@ -1,8 +1,8 @@
 # SolidCraft for PartCAD
 
 A [PartCAD](https://github.com/partcad/partcad) plugin package for
-[SolidCraft](https://github.com/bherbruck/solidcraft), the open-source parametric CAD application written in Rust.
-It adds what SolidCraft reads and PartCAD does not:
+[SolidCraft](https://github.com/tangency-labs/solidcraft), the open-source parametric CAD application written in Rust.
+It adds what SolidCraft reads and PartCAD does not, and what SolidCraft draws:
 
 | What | Declared as | Reads / writes |
 |---|---|---|
@@ -10,6 +10,7 @@ It adds what SolidCraft reads and PartCAD does not:
 | A Rhino file (`.3dm`), its solids | `type: solidcraft:rhino` | read |
 | An IGES file (`.igs`, `.iges`), its solids and sewn surfaces | `type: solidcraft:iges` | read |
 | A SolidCraft design holding any PartCAD object | `pc export -t solidcraft:solidcraft` | write |
+| A technical drawing of any part or assembly, by SolidCraft: SVG, PDF, DXF or PNG | `pc render -t pdf -e //pub/feature/cad/solidcraft` | write |
 | SolidCraft itself, to view and edit an object in | `pc ide open --with solidcraft`, or *Open in SolidCraft* in the PartCAD extension for VS Code | — |
 
 `solidcraft:` is the name the workspace imports this package under; use whatever name the dependency is given.
@@ -59,6 +60,51 @@ same name before it is rebuilt, so `plate;height=35` is the plate at 35 mm.
 What PartCAD gets from any of the three is the solid SolidCraft writes out as STEP: a design's history stays in the
 design.
 
+## Drawings
+
+SolidCraft has a drawing workspace of its own, and this package's `render:` section puts it behind PartCAD's
+`pc render`: the object is opened in SolidCraft, and SolidCraft lays out its front, top and right views in the
+drawing's projection and an isometric one, on an ISO sheet with its border and title block, and writes the sheet as
+SVG, PDF, DXF or PNG ([`render_drawing.py`](render_drawing.py)).
+
+```shell
+pc render -t pdf -e //pub/feature/cad/solidcraft //your/package:bracket
+pc render -t svg -e //pub/feature/cad/solidcraft //your/package:bracket
+```
+
+`-e` reads the file type from this package rather than from PartCAD's own `svg`, `dxf` and `png`, which project
+the shape flat; nothing changes in the package being drawn, and a workspace importing this package for its
+partTypes keeps PartCAD's own file types. In the PartCAD extension for VS Code, the **Draft** tab offers it in
+**Drawn by**, beside `//pub/feature/render/draftwright`.
+
+What the title block says, the sheet and the views are parameters of the file type, set for a whole package or for
+one object, and the ones [draftwright](https://github.com/partcad/partcad-render-draftwright) also takes mean the
+same here -- so a package that configures its drawings once gets the same title block from either:
+
+```yaml
+render:
+  pdf:
+    title: Mounting Plate   # default: the object's name
+    number: PC-EX-0001
+    revision: B
+    drawn_by: A. Engineer
+    company: ACME Corp.
+    page: A3                # ISO A0 to A4; default A3 for a part, A2 for an assembly
+    scale: 2                # 2:1, or "paper:model" text; default: fitted to the sheet
+    projection: first       # default: third
+```
+
+`partcad.yaml` lists the rest, which are SolidCraft's own (`template`, `view`, `iso`, `line_group`, `font`, ...).
+
+Two things it does not do. It places **no dimensions**: SolidCraft brings a design's own dimensions into its
+drawings, but what PartCAD hands it is a solid, with no sketch or feature behind it to have them -- for dimensions,
+draw with draftwright, or open the object in SolidCraft and dimension it there. And it is **not reproducible** byte for
+byte: SolidCraft has no switch that pins what it writes, so `reproducible: true` is answered with a warning rather
+than a promise. A sketch is refused; PartCAD's own `svg` and `dxf` draw one as it is.
+
+SolidCraft checks every command's parameters against its contract (`--param-check strict`), so a parameter that
+does not reach it as SolidCraft spells it fails the render, naming it, rather than being dropped.
+
 ## Where SolidCraft comes from
 
 Everything here runs SolidCraft's command line tool, `solidcraft-cli`. Whichever comes first is used:
@@ -73,7 +119,7 @@ Everything here runs SolidCraft's command line tool, `solidcraft-cli`. Whichever
    package is a new directory and a new download.
 
 `pc ide open --with solidcraft` finds an installed SolidCraft (the `PATH`, `SolidCraft.app`, Windows' program
-directories, the `ai.storyteller.solidcraft` Flatpak) and otherwise runs the same image, pulled on demand, with the
+directories, the `io.tangencylabs.solidcraft` Flatpak) and otherwise runs the same image, pulled on demand, with the
 display forwarded into it.
 
 Editing in SolidCraft: SolidCraft is offered a SolidCraft design first, then STEP and IGES, then meshes; anything
@@ -111,8 +157,8 @@ the parts.
 
 Change `VERSION` and every checksum in `solidcraft_tool.py` (from the release's `SHA256SUMS.txt`), the version and
 both Linux checksums in the `Dockerfile` (a test holds the two to each other), then run `./image-tag.sh` and update
-both pins in `partcad.yaml`. Raise `CACHE_VERSION` in `read_part.py` and `export_solidcraft.py` if what they produce
-changes.
+both pins in `partcad.yaml`. Raise `CACHE_VERSION` in `read_part.py`, `export_solidcraft.py` and `render_drawing.py`
+if what they produce changes.
 
 ## Licences
 
