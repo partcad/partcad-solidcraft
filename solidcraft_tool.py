@@ -5,7 +5,7 @@
 #
 """Find SolidCraft's command line tool, or fetch it.
 
-SolidCraft (https://github.com/bherbruck/solidcraft, MIT or Apache-2.0) is a
+SolidCraft (https://github.com/tangency-labs/solidcraft, MIT or Apache-2.0) is a
 native program rather than a Python package, so pip cannot install it into a
 sandbox. In order of preference, the 'solidcraft-cli' used is:
 
@@ -28,43 +28,55 @@ import urllib.request
 import zipfile
 
 CLI = "solidcraft-cli"
-VERSION = "0.16.1"
-RELEASE_URL = "https://github.com/bherbruck/solidcraft/releases/download/v%s/" % VERSION
+VERSION = "0.47.0"
+RELEASE_URL = "https://github.com/tangency-labs/solidcraft/releases/download/v%s/" % VERSION
 
 # (operating system, machine) -> (asset, SHA-256), from the release's
 # 'SHA256SUMS.txt'. Each holds the command line tool beside the application.
 ASSETS = {
     ("linux", "x86_64"): (
         "solidcraft-%s-linux-x86_64.tar.gz" % VERSION,
-        "b6dd545496a792897b87ba5679292db987853088d7cf13ccee64d94f0707f42b",
+        "40669dcb2f64ea377161b79183f22779397f55088fe529750a1c8501cc55b972",
     ),
     ("linux", "aarch64"): (
         "solidcraft-%s-linux-aarch64.tar.gz" % VERSION,
-        "639fea1b84b2b6e95b78203a044090450a539b3b341201eb2720d59329a71934",
+        "d29b2fe019a383036c65b6bae1bd601e7a9a7bf50ffdd6a64a2560fbe0dbf66d",
     ),
     ("freebsd", "x86_64"): (
         "solidcraft-%s-freebsd-x86_64.tar.gz" % VERSION,
-        "4a4aef999de830e7a89e531384d98704626f7cdaaf40bedd210fe561926a7b35",
+        "20469255ccede4500b36cf234fe21da31039cd62b520d426579d5f5c1ee8ae67",
     ),
     ("darwin", "x86_64"): (
         "solidcraft-cli-%s-macos-universal.zip" % VERSION,
-        "3d3deffe7ac17d5e5f7ed467bbe117f5ff7ba1f8bebffff38f99f8ed6c311698",
+        "6b0a3419e313f45faf7cb4b644c9af6652bb66929e7bec67ccb105e81b2f4758",
     ),
     ("darwin", "aarch64"): (
         "solidcraft-cli-%s-macos-universal.zip" % VERSION,
-        "3d3deffe7ac17d5e5f7ed467bbe117f5ff7ba1f8bebffff38f99f8ed6c311698",
+        "6b0a3419e313f45faf7cb4b644c9af6652bb66929e7bec67ccb105e81b2f4758",
     ),
     ("windows", "x86_64"): (
         "solidcraft-%s-windows-x64-portable.zip" % VERSION,
-        "610a19eecafeae90e6f89645f62281430e9222c6e700e112e76c90b51d69986e",
+        "394e86dae142b2f819d8d64efdbc99c9096a8a2a92e62aef0a56fe17e035a2db",
     ),
     ("windows", "aarch64"): (
         "solidcraft-%s-windows-arm64-portable.zip" % VERSION,
-        "abebfb8421b9b6b954ceaf55e63aa08902c0d74c29584156d6378a8d35ea0296",
+        "e07bd1ee9b9debae1452be7132743879fc4738d4266b0d63fbdcd00fe2210332",
     ),
 }
 
 MACHINES = {"amd64": "x86_64", "x86_64": "x86_64", "arm64": "aarch64", "aarch64": "aarch64"}
+
+
+# What 'solidcraft-cli' is run with, on top of the caller's environment. SolidCraft
+# asks GitHub for a newer release and sends anonymous usage statistics unless
+# told not to; run headless by PartCAD on somebody's behalf, it is told not to
+# (see "Privacy" in SolidCraft's documentation).
+QUIET_ENVIRONMENT = {"SOLIDCRAFT_NO_TELEMETRY": "1", "SOLIDCRAFT_UPDATE_CHECK": "0"}
+
+
+def environment():
+    """The environment to run 'solidcraft-cli' in: this one, with nothing sent anywhere."""
+    return {**os.environ, **QUIET_ENVIRONMENT}
 
 
 def host():

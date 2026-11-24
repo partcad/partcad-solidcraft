@@ -58,14 +58,14 @@ RUN apt-get update \
 # Python does the downloading because this base image has no curl, and
 # installing it to fetch one file would leave it here.
 RUN set -eu; \
-    SOLIDCRAFT_VERSION=0.16.1; \
+    SOLIDCRAFT_VERSION=0.47.0; \
     case "$(uname -m)" in \
-      x86_64) SOLIDCRAFT_ARCH=x86_64; SHA256=b6dd545496a792897b87ba5679292db987853088d7cf13ccee64d94f0707f42b ;; \
-      aarch64) SOLIDCRAFT_ARCH=aarch64; SHA256=639fea1b84b2b6e95b78203a044090450a539b3b341201eb2720d59329a71934 ;; \
+      x86_64) SOLIDCRAFT_ARCH=x86_64; SHA256=40669dcb2f64ea377161b79183f22779397f55088fe529750a1c8501cc55b972 ;; \
+      aarch64) SOLIDCRAFT_ARCH=aarch64; SHA256=d29b2fe019a383036c65b6bae1bd601e7a9a7bf50ffdd6a64a2560fbe0dbf66d ;; \
       *) echo "this image pins no SolidCraft for $(uname -m)" >&2; exit 1 ;; \
     esac; \
     python3 -c 'import hashlib, io, sys, tarfile, urllib.request; url, want, prefix = sys.argv[1:4]; blob = urllib.request.urlopen(url).read(); got = hashlib.sha256(blob).hexdigest(); got == want or sys.exit("%s hashes to %s, not the pinned %s" % (url, got, want)); archive = tarfile.open(fileobj=io.BytesIO(blob), mode="r:gz"); members = [m for m in archive.getmembers() if "/" in m.name]; [setattr(m, "name", m.name.split("/", 1)[1]) for m in members]; archive.extractall(prefix, members=members, filter="data")' \
-      "https://github.com/bherbruck/solidcraft/releases/download/v${SOLIDCRAFT_VERSION}/solidcraft-${SOLIDCRAFT_VERSION}-linux-${SOLIDCRAFT_ARCH}.tar.gz" \
+      "https://github.com/tangency-labs/solidcraft/releases/download/v${SOLIDCRAFT_VERSION}/solidcraft-${SOLIDCRAFT_VERSION}-linux-${SOLIDCRAFT_ARCH}.tar.gz" \
       "${SHA256}" /opt/solidcraft
 
 # Where every way of looking finds them: on PATH, and in /usr/local/bin, which
